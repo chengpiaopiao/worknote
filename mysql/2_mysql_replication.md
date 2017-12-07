@@ -77,7 +77,7 @@ flush privileges;
 
 	[root@localhost ~]# mysql -uroot -proot
 
-	mysql> grant replication slave on *.* to 'repl'@'Slave' identified by '123456';
+	mysql> grant replication slave on *.* to 'repl'@'192.168.0.111' identified by '123456';
 
 
 ## 6. 登录主服务器的mysql，查询master的状态
@@ -96,7 +96,8 @@ mysql> show master status;
 ```
 mysql> stop slave;
 
-mysql> CHANGE MASTER TO MASTER_HOST='192.168.0.110',
+mysql> CHANGE MASTER TO
+    -> MASTER_HOST='192.168.0.110',
     -> MASTER_USER='repl',MASTER_PASSWORD='123456',
     -> MASTER_PORT=3306,MASTER_CONNECT_RETRY=60,
     -> MASTER_LOG_FILE='mysql-bin.000010',MASTER_LOG_POS=1415;
@@ -104,13 +105,14 @@ mysql> CHANGE MASTER TO MASTER_HOST='192.168.0.110',
 mysql> start slave;
 ```
 
+
 > 在执行 CHANGE MASTER TO 语句之前，一定要先执行 stop slave 指令。
 
 > MASTER_HOST 表示需要进行同步的 MySQL 库所在的主机名，可以写 IP 地址，也可以填写 HOSTNAME。
 
 > MASTER_LOG_FILE 和 MASTER_LOG_POS 一定要和步骤6在 Master 端执行 show master status 命令的结果保持一致，否则无法同步。
 
-> 最后需要执行 SLAVE START 指令，开始主从同步。
+> 最后需要执行 start slave 指令，开始主从同步。
 
 
 ## 8. 检查从服务器复制功能状态
@@ -186,7 +188,7 @@ No query specified
 
 主服务器 mysql 中建立数据库，并插入数据;
 
-在从服务器 mysql 中查看是否也自动增加了和主服务器中数据库和数据表。
+在从服务器 mysql 中查看是否也自动增加了和主服务器中一样的数据库和数据表。
 
 
 ## 10. 异常监控
