@@ -2,26 +2,35 @@
 
 ## 1. 创建同步资源
 
-MySQL 的 Binary Log 机制可以同步整个 MySQL 库，也可以只同步一个或者多个数据库，无论哪种同步方式，都需在 Slave 上创建一个同步用户，允许该用户可以远程访问 Master 数据库，并可读取 Master 数据库的 Binary Log 日志。
+> MySQL 的 Binary Log 机制可以同步整个 MySQL 库，也可以只同步一个或者多个数据库，无论哪种同步方式，都需在 Slave 上创建一个同步用户，允许该用户可以远程访问 Master 数据库，并可读取 Master 数据库的 Binary Log 日志。
 
-理论上，可以在 Master 和 Slave 的 MySQL Server 中创建不同的用户用于同步，只要其中的初始数据一致即可，但在大多数实际生产环境中，为了降低运维成本，在 Master 和 Slave 上所创建的用于同步的用户名和数据库名通常都保持一致，本文在 Master 和 Slave 创建的同步用户名为 repl，密码是 123456。
+> 理论上，可以在 Master 和 Slave 的 MySQL Server 中创建不同的用户用于同步，只要其中的初始数据一致即可，但在大多数实际生产环境中，为了降低运维成本，在 Master 和 Slave 上所创建的用于同步的用户名和数据库名通常都保持一致，本文在 Master 和 Slave 创建的同步用户名为 repl，密码是 123456
 
 
 **主从服务器分别作以下操作**
 
-1. 修改 MySQL 服务器 root 用户的密码：
+0. 在主从机的/etc/hosts文件中添加以下两行
+```
+10.123.211.229 Master
+10.123.211.230 Slave
+```
 
-    mysqladmin -u root password 'root'
+1. 修改 MySQL 服务器 root 用户的密码
+```
+mysqladmin -u root password 'root'
+```
 
 2. 以 root 用户身份登录 MySQL Server：
+```
+mysql -uroot -proot
+```
 
-    mysql -uroot -proot
+3. 创建同步用户 repl，密码是 123456
+```
+create user 'repl' identified by  '123456';
+```
 
-3. 创建同步用户 repl，密码是 123456：
-
-    create user 'repl' identified by  '123456';
-
-repl 用户建好以后，需要为之赋予一些权限，以便该用户可以执行登录、建表、insert等操作，在实际生产环节中，可以根据实际需要赋予特定的角色，本文使用如下语句为之赋予最大权限：
+>repl 用户建好以后，需要为之赋予一些权限，以便该用户可以执行登录、建表、insert等操作，在实际生产环节中，可以根据实际需要赋予特定的角色，本文使用如下语句为之赋予最大权限：
 
 Master 端
 ```
@@ -47,6 +56,7 @@ flush privileges;
 如果登录的过程中出现如下错误：
 
 > ERROR 1045 (28000): Access denied for user 'repl'@'localhost' (using password: YES)
+
 使用 mysqladmin 更正 repl 密码即可：
 
     mysqladmin -u repl password '123456'
@@ -55,29 +65,35 @@ flush privileges;
 ## 2. 修改主服务器 master
 ``` 
 [root@localhost ~]# vi /etc/my.cnf
-   [mysqld]
-   log-bin=mysql-bin  //[必须]启用二进制日志
-   server-id=110      //[必须]服务器唯一ID，默认是1，一般取IP最后一段
+[mysqld]
+log-bin=mysql-bin  #[必须]启用二进制日志
+server-id=110      #[必须]服务器唯一ID，默认是1，一般取IP最后一段
 ```
-   
+
 ## 3. 修改从服务器 slave
 ```
 [root@localhost ~]# vi /etc/my.cnf
-   [mysqld]
-   log-bin=mysql-bin  //[必须]启用二进制日志
-   server-id=111      //[必须]服务器唯一ID，默认是1，一般取IP最后一段
+[mysqld]
+log-bin=mysql-bin  #[必须]启用二进制日志
+server-id=111      #[必须]服务器唯一ID，默认是1，一般取IP最后一段
 ```
 
 ## 4. 重启两台服务器的 mysql
 
 	[root@localhost ~]# service mysqld restart
 
+或进入到mysql的bin目录
+
+关闭
+	[root@localhost bin]#./mysqladmin -uroot -p shutdown
+启动
+	[root@localhost bin]#./mysqld_safe --user=root &
 
 ## 5. 在主服务器上建立帐户并授权slave
 
 	[root@localhost ~]# mysql -uroot -proot
 
-	mysql> grant replication slave on *.* to 'repl'@'192.168.0.111' identified by '123456';
+	mysql> grant replication slave on *.* to 'repl'@'Slave' identified by '123456';
 
 
 ## 6. 登录主服务器的mysql，查询master的状态
@@ -96,15 +112,14 @@ mysql> show master status;
 ```
 mysql> stop slave;
 
-mysql> CHANGE MASTER TO
-    -> MASTER_HOST='192.168.0.110',
+mysql> CHANGE MASTER TO MASTER_HOST='Master',
     -> MASTER_USER='repl',MASTER_PASSWORD='123456',
     -> MASTER_PORT=3306,MASTER_CONNECT_RETRY=60,
     -> MASTER_LOG_FILE='mysql-bin.000010',MASTER_LOG_POS=1415;
 
 mysql> start slave;
 ```
-
+CHANGE MASTER TO MASTER_HOST='Master',MASTER_USER='repl',MASTER_PASSWORD='123456',MASTER_PORT=3306,MASTER_CONNECT_RETRY=60,MASTER_LOG_FILE='mysql-bin.000010',MASTER_LOG_POS=1415;
 
 > 在执行 CHANGE MASTER TO 语句之前，一定要先执行 stop slave 指令。
 
