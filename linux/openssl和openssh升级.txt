@@ -1,0 +1,66 @@
+【openssl升级】
+
+0. 下载新版本openssl
+cd /usr/local/
+wget https://www.openssl.org/source/openssl-1.1.1.tar.gz
+
+1. 更新zlib
+yum install -y zlib
+
+2. 解压，并进入解压后的目录
+tar -zxf openssl-1.1.1.tar.gz
+cd openssl-1.1.1
+
+3. 配置编译参数，安装路径是 /usr/local/openssl
+./config --prefix=/usr/local/openssl
+
+4. 编译安装
+make && make install
+
+5. 备份原来的openssl
+whereis openssl #下面是该命令的输出，即openssl的关联目录及文件
+openssl: /usr/bin/openssl /usr/lib64/openssl /usr/local/openssl /usr/share/man/man1/openssl.1ssl.gz
+
+mv /usr/bin/openssl /usr/bin/openssl.bak
+mv /usr/lib64/openssl /usr/lib64/openssl.bak
+
+6. 配置软链接
+ln -s /usr/local/openssl/bin/openssl /usr/bin/openssl
+ln -s /usr/local/openssl/include/openssl /usr/include/openssl
+
+7. 将openssl的动态链接库地址写入动态链接装入器
+echo "/usr/local/openssl/lib" >> /etc/ld.so.conf
+
+8. 重新加载动态链接库
+ldconfig -v
+
+9. 查看openssl版本
+openssl version
+
+
+【openssh升级】
+0. 下载新版本openssh
+cd /usr/local/
+wget http://openbsd.hk/pub/OpenBSD/OpenSSH/portable/openssh-7.9p1.tar.gz
+
+1. 卸载原有openssh
+rpm -e `rpm -qa | grep openssh` --nodeps
+
+2. 安装编译所需软件 zlib pam 
+yum -y install rpm-build
+yum -y install gcc pam-devel zlib-devel
+
+3. 解压
+tar -zxf openssh-7.9p1.tar.gz
+
+4. 配置编译参数
+cd openssh-7.9p1
+./configure --with-zlib --with-ssl-dir=/usr/loca/openssl --with-pam --bindir=/usr/bin --sbindir=/usr/sbin --sysconfdir=/etc/ssh
+
+5. 编译安装
+make clean; make && make install 
+
+6. 查看版本
+ssh -V
+
+
